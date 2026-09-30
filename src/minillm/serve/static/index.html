@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MiniLLM Playground</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #6ea8fe;
+    --accent-dim: #2f4a72;
+    --good: #4fd18b;
+    --mono: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 64px;
+  }
+  .app { width: 100%; max-width: 760px; }
+
+  header { margin-bottom: 24px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--text-dim); font-size: 13.5px; line-height: 1.5; }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px; font-size: 12.5px; color: var(--text-dim);
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 5px 10px; border-radius: 999px;
+  }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+  .status.ok .dot { background: var(--good); }
+  .status.err .dot { background: #f87171; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip {
+    font-size: 12.5px; color: var(--text-dim);
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    font-family: var(--mono);
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent-dim); }
+
+  textarea {
+    width: 100%; resize: vertical; min-height: 84px;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-family: var(--mono); font-size: 14px; line-height: 1.5;
+  }
+  textarea:focus { outline: none; border-color: var(--accent-dim); }
+
+  .controls {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .control { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); }
+  .control input[type="number"] {
+    width: 60px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font-size: 13px;
+  }
+  .control input[type="range"] { width: 110px; accent-color: var(--accent); }
+  .control .val { color: var(--text); font-family: var(--mono); width: 28px; }
+
+  .run-row { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  button.generate {
+    background: var(--accent); color: #0b1220; border: none;
+    font-weight: 600; font-size: 13.5px; padding: 9px 18px; border-radius: 8px;
+    cursor: pointer;
+  }
+  button.generate:disabled { opacity: 0.5; cursor: default; }
+  button.generate:hover:not(:disabled) { filter: brightness(1.08); }
+
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    animation: spin 0.7s linear infinite; display: none;
+  }
+  .spinner.show { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error { color: #f87171; font-size: 13px; margin-top: 10px; display: none; }
+  .error.show { display: block; }
+
+  .history { display: flex; flex-direction: column; gap: 12px; }
+  .turn {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .turn .meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px; color: var(--text-dim); margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+  .turn .meta button {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    font-size: 11.5px; font-family: var(--sans); text-decoration: underline;
+    padding: 0;
+  }
+  .turn .meta button:hover { color: var(--text); }
+  .turn .text {
+    font-family: var(--mono); font-size: 14px; line-height: 1.6; white-space: pre-wrap;
+  }
+  .turn .text .prompt-part { color: var(--accent); font-weight: 600; }
+  .turn .text .completion-part { color: var(--text); }
+
+  .empty { color: var(--text-dim); font-size: 13.5px; text-align: center; padding: 24px 0; }
+
+  footer {
+    margin-top: 24px; text-align: center; font-size: 11.5px; color: var(--text-dim);
+  }
+  footer a { color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>MiniLLM Playground</h1>
+    <p>A 5.8M-parameter decoder-only Transformer, trained from scratch on TinyShakespeare.
+       This continues text — it isn't instruction-tuned, so it won't "answer" a prompt like a chatbot,
+       it will keep writing in the same voice.</p>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">checking server…</span></div>
+  </header>
+
+  <div class="panel">
+    <div class="chips" id="chips"></div>
+    <textarea id="prompt" placeholder="ROMEO:">ROMEO:</textarea>
+    <div class="controls">
+      <div class="control">
+        <label for="max-tokens">length</label>
+        <input type="number" id="max-tokens" value="100" min="1" max="400" />
+      </div>
+      <div class="control">
+        <label for="temp">temperature</label>
+        <input type="range" id="temp" min="0.1" max="1.5" step="0.05" value="0.8" />
+        <span class="val" id="temp-val">0.80</span>
+      </div>
+      <div class="run-row">
+        <div class="spinner" id="spinner"></div>
+        <button class="generate" id="generate">Generate</button>
+      </div>
+    </div>
+    <div class="error" id="error"></div>
+  </div>
+
+  <div class="history" id="history">
+    <div class="empty">Generations will appear here.</div>
+  </div>
+
+  <footer>served locally by the MiniLLM FastAPI app · <a href="/docs">raw API docs</a></footer>
+</div>
+
+<script>
+const EXAMPLE_PROMPTS = ["ROMEO:", "JULIET:", "MACBETH:", "To be, or not to be,", "HAMLET:", "O Fortune,"];
+const chipsEl = document.getElementById("chips");
+EXAMPLE_PROMPTS.forEach(p => {
+  const chip = document.createElement("span");
+  chip.className = "chip";
+  chip.textContent = p;
+  chip.onclick = () => { document.getElementById("prompt").value = p; };
+  chipsEl.appendChild(chip);
+});
+
+const tempInput = document.getElementById("temp");
+const tempVal = document.getElementById("temp-val");
+tempInput.oninput = () => { tempVal.textContent = parseFloat(tempInput.value).toFixed(2); };
+
+async function checkHealth() {
+  const statusEl = document.getElementById("status");
+  const statusText = document.getElementById("status-text");
+  try {
+    const res = await fetch("/health");
+    if (!res.ok) throw new Error("bad response");
+    const data = await res.json();
+    statusEl.className = "status ok";
+    statusText.textContent =
+      `online · ${data.model_parameters.toLocaleString()} params · ${data.vocab_size} vocab · ${data.device}`;
+  } catch (e) {
+    statusEl.className = "status err";
+    statusText.textContent = "server unreachable";
+  }
+}
+checkHealth();
+
+const historyEl = document.getElementById("history");
+const errorEl = document.getElementById("error");
+const spinner = document.getElementById("spinner");
+const generateBtn = document.getElementById("generate");
+
+function renderHistory(turns) {
+  if (turns.length === 0) {
+    historyEl.innerHTML = '<div class="empty">Generations will appear here.</div>';
+    return;
+  }
+  historyEl.innerHTML = "";
+  turns.forEach((turn, i) => {
+    const div = document.createElement("div");
+    div.className = "turn";
+    div.innerHTML = `
+      <div class="meta">
+        <span>${turn.completion_tokens} tokens · ${turn.latency_ms.toFixed(0)} ms · temp ${turn.temperature}</span>
+        <button data-i="${i}">reuse prompt</button>
+      </div>
+      <div class="text"><span class="prompt-part"></span><span class="completion-part"></span></div>
+    `;
+    div.querySelector(".prompt-part").textContent = turn.prompt;
+    div.querySelector(".completion-part").textContent = turn.completion;
+    div.querySelector("button").onclick = () => {
+      document.getElementById("prompt").value = turn.prompt;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    historyEl.appendChild(div);
+  });
+}
+
+const turns = [];
+
+async function generate() {
+  const prompt = document.getElementById("prompt").value;
+  const maxTokens = parseInt(document.getElementById("max-tokens").value, 10);
+  const temperature = parseFloat(tempInput.value);
+  if (!prompt.trim()) return;
+
+  errorEl.classList.remove("show");
+  generateBtn.disabled = true;
+  spinner.classList.add("show");
+
+  try {
+    const res = await fetch("/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, max_new_tokens: maxTokens, temperature }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ? JSON.stringify(body.detail) : `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    turns.unshift({ ...data, temperature });
+    renderHistory(turns);
+  } catch (e) {
+    errorEl.textContent = "Generation failed: " + e.message;
+    errorEl.classList.add("show");
+  } finally {
+    generateBtn.disabled = false;
+    spinner.classList.remove("show");
+  }
+}
+
+generateBtn.onclick = generate;
+document.getElementById("prompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
+});
+</script>
+</body>
+</html>

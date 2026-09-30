@@ -1,0 +1,16 @@
+[project]
+name = "minillm"
+version = "0.1.0"
+description = "A decoder-only Transformer language model built from scratch in PyTorch, with a custom BPE tokenizer and a Dockerized FastAPI serving layer."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

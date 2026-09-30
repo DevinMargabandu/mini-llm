@@ -1,0 +1,19 @@
+Measured on: Apple Silicon (torch 2.14.0, MPS backend), 8-core CPU, 2026-09-16
+Command: python benchmarks/benchmark_training.py
+
+device: mps
+
+--- small (5.8M params, d_model=256) (5,847,040 params) ---
+  batch= 16  fp32:    11,912 tok/s ( 343.8 ms/step)  amp(bf16):     7,987 tok/s ( 512.9 ms/step)  delta: -49.2%
+  batch= 32  fp32:    10,431 tok/s ( 785.3 ms/step)  amp(bf16):    10,200 tok/s ( 803.1 ms/step)  delta: -2.3%
+
+--- larger (60M params, d_model=768) ---
+  batch= 16  fp32:     2,279 tok/s (1797.4 ms/step)  amp(bf16):     1,884 tok/s (2174.5 ms/step)  delta: -21.0%
+
+Interpretation: torch.autocast(bf16) is not faster than fp32 on this MPS backend
+for these model/batch sizes -- MPS does not currently give bf16 matmuls a
+hardware throughput advantage the way NVIDIA Tensor Cores do, so autocast here
+mostly adds dispatch/cast overhead. The same autocast code path gives the
+classic mixed-precision speedup on CUDA hardware (fp16 with GradScaler, or
+bf16 on Ampere+), which this benchmark script also supports -- it just wasn't
+run on that hardware for this project.

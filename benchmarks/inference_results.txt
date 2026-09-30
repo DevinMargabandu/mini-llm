@@ -1,0 +1,21 @@
+Measured on: Apple Silicon (torch 2.14.0, MPS backend), 8-core CPU, 2026-09-16
+Command: python benchmarks/benchmark_inference.py
+
+device: mps
+
+--- KV cache vs. no cache, single request (sweeping generation length) ---
+new_tokens   no_cache (ms)    cache (ms)   speedup
+        64           107.6         215.4     0.50x
+       256           415.7         822.8     0.51x
+       512          1199.6        1285.0     0.93x
+       900          3485.0        2602.5     1.34x
+
+Note: without a cache, every step reprocesses the whole (growing) sequence -- roughly O(n^2) total work over a generation. With a cache, each step only does O(1) work for the new token. For short generations, fixed per-step Python/kernel-dispatch overhead and cache-concatenation bookkeeping outweigh that saving; the crossover in the table above is where the O(n^2) cost catches up.
+
+--- Continuous batching vs. sequential (concurrent requests, 64 new tokens each) ---
+n_requests   sequential (ms)   batched (ms)   speedup
+         2             311.2          509.1     0.61x
+         4             343.9          366.7     0.94x
+         8             680.8          657.5     1.04x
+        16            1431.6          824.9     1.74x
+        32            2599.4         1132.4     2.30x

@@ -1,0 +1,10 @@
+torch>=2.2
+numpy>=1.24
+regex>=2023.10.3
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+requests>=2.31
+
+pytest>=8.0
+httpx>=0.27

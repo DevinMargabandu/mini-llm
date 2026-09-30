@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.git
+data
+tests
+benchmarks
+profiler_traces
+runs
+*.md
